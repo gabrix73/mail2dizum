@@ -59,18 +59,15 @@ Aggiungi il seguente contenuto:
     ErrorLog ${APACHE_LOG_DIR}/mail2news_error.log
     CustomLog ${APACHE_LOG_DIR}/mail2news_access.log combined
 </VirtualHost>
+
 Abilita la configurazione:
 
-bash
-Copier le code
 sudo a2ensite mail2news.conf
 sudo systemctl restart apache2
-Utilizzo
+
 Avviare il server Go
 Avvia il server mail2news:
 
-bash
-Copier le code
 ./mail2news
 Il server sarà disponibile su http://127.0.0.1:8443. Tramite il proxy Apache2 configurato, sarà accessibile via HTTPS al dominio configurato (ad esempio, https://mail2news.example.com).
 
