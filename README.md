@@ -1,4 +1,4 @@
-Mail2Dizum è un'applicazione scritta in Go che consente l'invio di messaggi ai newsgroup tramite email. 
+Mail2Dizum è un'applicazione scritta in Go che consente l'invio di messaggi ai newsgroup tramite emails dirette al mail2news gateway di dizum.com. 
 La comunicazione avviene in modo anonimo attraverso la rete Tor, utilizzando un server SMTP .onion per garantire privacy e sicurezza.
 
 Per utilizzare mail2news, sono necessari i seguenti requisiti:
