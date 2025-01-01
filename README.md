@@ -23,14 +23,11 @@ Assicurati che Tor sia installato e configurato. Puoi installarlo utilizzando il
 Compilazione del progetto
 Clona questo repository e naviga nella directory del progetto:
 
-bash
-Copier le code
 git clone https://github.com/tuo-username/mail2news.git
 cd mail2news
+
 Compila il codice Go:
 
-bash
-Copier le code
 go build -o mail2news mail2news.go
 Questo genererà un eseguibile chiamato mail2news.
 
@@ -45,13 +42,9 @@ sudo a2enmod ssl proxy proxy_http proxy_balancer proxy_connect
 3. Configura un VirtualHost
 Crea un nuovo file di configurazione per Apache:
 
-bash
-Copier le code
 sudo nano /etc/apache2/sites-available/mail2news.conf
 Aggiungi il seguente contenuto:
 
-apache
-Copier le code
 <VirtualHost *:443>
     ServerName mail2news.example.com
 
