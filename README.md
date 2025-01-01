@@ -1,10 +1,10 @@
 Mail2Dizum è un'applicazione scritta in Go che consente l'invio di messaggi ai newsgroup tramite email. 
 La comunicazione avviene in modo anonimo attraverso la rete Tor, utilizzando un server SMTP .onion per garantire privacy e sicurezza.
 
-Requisiti
 Per utilizzare mail2news, sono necessari i seguenti requisiti:
 
-Go (Golang): Assicurati di avere Go installato. Puoi scaricarlo da https://go.dev/dl/.
+Go (Golang): Assicurati di avere Go installato. 
+Puoi scaricarlo da https://go.dev/dl/.
 Tor: Deve essere configurato e in esecuzione sulla tua macchina con il supporto SOCKS5.
 Apache2: Configurato come proxy per fornire un'interfaccia HTTPS sicura.
 
