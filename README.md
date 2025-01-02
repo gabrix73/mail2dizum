@@ -1,4 +1,4 @@
-Mail2Dizum è un'applicazione scritta in Go che consente l'invio di messaggi ai newsgroup tramite emails dirette al mail2news gateway di dizum.com. 
+<strong>Mail2Dizum</strong> è un'applicazione scritta in Go che consente l'invio di messaggi ai newsgroup tramite emails dirette al mail2news gateway di dizum.com. 
 La comunicazione avviene in modo anonimo attraverso la rete Tor, utilizzando un server SMTP .onion per garantire privacy e sicurezza.
 
 Per utilizzare mail2news, sono necessari i seguenti requisiti:
@@ -44,10 +44,9 @@ sudo a2enmod ssl proxy proxy_http proxy_balancer proxy_connect</code>
 
 <code>sudo nano /etc/apache2/sites-available/mail2news.conf</code>
 Aggiungi il seguente contenuto:<br>
-<code>
-<VirtualHost *:443>
-    ServerName mail2news.example.com
 
+<code><VirtualHost *:443>
+    ServerName mail2news.example.com
     SSLEngine on
     SSLCertificateFile /etc/letsencrypt/live/mail2news.example.com/fullchain.pem
     SSLCertificateKeyFile /etc/letsencrypt/live/mail2news.example.com/privkey.pem
@@ -58,8 +57,7 @@ Aggiungi il seguente contenuto:<br>
 
     ErrorLog ${APACHE_LOG_DIR}/mail2news_error.log
     CustomLog ${APACHE_LOG_DIR}/mail2news_access.log combined
-</VirtualHost>
-</code>
+</VirtualHost></code>
 Abilita la configurazione:<br>
 
 <code>sudo a2ensite mail2news.conf
