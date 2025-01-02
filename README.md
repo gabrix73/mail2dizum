@@ -9,42 +9,42 @@ Tor: Deve essere configurato e in esecuzione sulla tua macchina con il supporto 
 Apache2: Configurato come proxy per fornire un'interfaccia HTTPS sicura.
 
 Installazione
-1. Installa Go
-Scarica e installa Go dalla pagina ufficiale: https://go.dev/dl/.
+1. Installa Go<br>
+<p>Scarica e installa Go dalla pagina ufficiale: https://go.dev/dl/.</p>
 
-Verifica l'installazione eseguendo:
+<p>Verifica l'installazione eseguendo:</p>
 
-go version
-Assicurati che il comando restituisca una versione valida di Go.
+go version<br>
+<p>Assicurati che il comando restituisca una versione valida di Go.</p>
 
-2. Configura Tor
-Assicurati che Tor sia installato e configurato. Puoi installarlo utilizzando il gestore di pacchetti del tuo sistema operativo:
+2. Configura Tor<br>
+<p>Assicurati che Tor sia installato e configurato. Puoi installarlo utilizzando il gestore di pacchetti del tuo sistema operativo:</p>
 
-Compilazione del progetto
-Clona questo repository e naviga nella directory del progetto:
+Compilazione del progetto<br>
+<p>Clona questo repository e naviga nella directory del progetto:</p>
 
-git clone https://github.com/tuo-username/mail2news.git
-cd mail2news
+<code>git clone https://github.com/tuo-username/mail2news.git<br>
+cd mail2news</code>
 
-Compila il codice Go:
+<p>Compila il codice Go:</p>
 
-go build -o mail2news mail2news.go
-Questo genererà un eseguibile chiamato mail2news.
+<code>go build -o mail2news mail2news.go</code>
+<p>Questo genererà un eseguibile chiamato mail2news.</p>
 
-Configurazione del proxy Apache2
-Per fornire un'interfaccia sicura con TLS, configuriamo Apache2 come proxy per mail2news.
+<p>Configurazione del proxy Apache2</p>
+<p>Per fornire un'interfaccia sicura con TLS, configuriamo Apache2 come proxy per mail2news.</p>
 
-1. Installa Apache2
-Se non è già installato, su debian puoi farlo con:
-sudo apt install apache2
-sudo a2enmod ssl proxy proxy_http proxy_balancer proxy_connect
+1. Installa Apache2<br>
+<p>Se non è già installato, su debian puoi farlo con:</p>
+<code></code>sudo apt install apache2
+sudo a2enmod ssl proxy proxy_http proxy_balancer proxy_connect</code>
 
-3. Configura un VirtualHost
-Crea un nuovo file di configurazione per Apache:
+3. Configura un VirtualHost<br>
+<p>Crea un nuovo file di configurazione per Apache:</p>
 
-sudo nano /etc/apache2/sites-available/mail2news.conf
-Aggiungi il seguente contenuto:
-
+<code>sudo nano /etc/apache2/sites-available/mail2news.conf</code>
+Aggiungi il seguente contenuto:<br>
+<code>
 <VirtualHost *:443>
     ServerName mail2news.example.com
 
@@ -59,17 +59,17 @@ Aggiungi il seguente contenuto:
     ErrorLog ${APACHE_LOG_DIR}/mail2news_error.log
     CustomLog ${APACHE_LOG_DIR}/mail2news_access.log combined
 </VirtualHost>
+</code>
+Abilita la configurazione:<br>
 
-Abilita la configurazione:
+<code>sudo a2ensite mail2news.conf
+sudo systemctl restart apache2</code>
 
-sudo a2ensite mail2news.conf
-sudo systemctl restart apache2
+Avviare il server Go<br>
+Avvia il server mail2news:<br>
 
-Avviare il server Go
-Avvia il server mail2news:
-
-./mail2news
-Il server sarà disponibile su http://127.0.0.1:8443. Tramite il proxy Apache2 configurato, sarà accessibile via HTTPS al dominio configurato (ad esempio, https://mail2news.example.com).
+<code>./mail2news</code>
+<p>Il server sarà disponibile su http://127.0.0.1:8443. Tramite il proxy Apache2 configurato, sarà accessibile via HTTPS al dominio configurato (ad esempio, https://mail2news.example.com).</p>
 
 Librerie Go utilizzate
 Standard Libraries
@@ -79,23 +79,6 @@ html/template: Per la generazione dell'interfaccia HTML dinamica.
 Libreria per Tor Onion
 golang.org/x/net/proxy: Utilizzata per configurare e utilizzare un proxy SOCKS5. 
 Questa libreria è fondamentale per l'integrazione con la rete Tor, permettendo al server mail2news di comunicare in modo anonimo con il server SMTP .onion.
-Debugging
-Problemi comuni
-Errore SOCKS5: host unreachable
-
-Assicurati che Tor sia in esecuzione (sudo systemctl status tor).
-Prova a connetterti manualmente al server .onion usando torsocks telnet.
-Apache non instrada correttamente
-
-Controlla i log di Apache:
-bash
-Copier le code
-sudo tail -f /var/log/apache2/mail2news_error.log
-Errore durante l'invio dell'email
-
-Assicurati che il server SMTP .onion sia raggiungibile e funzioni correttamente.
-Contributi
-Siamo aperti a contributi! Sentiti libero di inviare una pull request o aprire una segnalazione per migliorare il progetto.
 
 Licenza
 Questo progetto è distribuito senza alcuna licenza.
