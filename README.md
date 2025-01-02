@@ -45,7 +45,7 @@ sudo a2enmod ssl proxy proxy_http proxy_balancer proxy_connect</code>
 <code>sudo nano /etc/apache2/sites-available/mail2news.conf</code>
 Aggiungi il seguente contenuto:<br>
 
-<code><VirtualHost *:443>
+<p><code><VirtualHost *:443>
     ServerName mail2news.example.com
     SSLEngine on
     SSLCertificateFile /etc/letsencrypt/live/mail2news.example.com/fullchain.pem
@@ -57,29 +57,27 @@ Aggiungi il seguente contenuto:<br>
 
     ErrorLog ${APACHE_LOG_DIR}/mail2news_error.log
     CustomLog ${APACHE_LOG_DIR}/mail2news_access.log combined
-</VirtualHost></code>
+</VirtualHost></code></p>
 Abilita la configurazione:<br>
 
 <code>sudo a2ensite mail2news.conf
 sudo systemctl restart apache2</code>
 
-Avviare il server Go<br>
 Avvia il server mail2news:<br>
 
 <code>./mail2news</code>
 <p>Il server sarà disponibile su http://127.0.0.1:8443. Tramite il proxy Apache2 configurato, sarà accessibile via HTTPS al dominio configurato (ad esempio, https://mail2news.example.com).</p>
 
-Librerie Go utilizzate
-Standard Libraries
-net/http: Per gestire l'interfaccia HTTP del server.
-net/smtp: Per la comunicazione con il server SMTP.
-html/template: Per la generazione dell'interfaccia HTML dinamica.
-Libreria per Tor Onion
-golang.org/x/net/proxy: Utilizzata per configurare e utilizzare un proxy SOCKS5. 
-Questa libreria è fondamentale per l'integrazione con la rete Tor, permettendo al server mail2news di comunicare in modo anonimo con il server SMTP .onion.
+<b>Librerie Go utilizzate:</b>
+<p><ul><li>net/http: Per gestire l'interfaccia HTTP del server.</li>
+<li>net/smtp: Per la comunicazione con il server SMTP.</li>
+<li>html/template: Per la generazione dell'interfaccia HTML dinamica.</li>
+<li>Libreria per Tor Onion:
+golang.org/x/net/proxy: Utilizzata per configurare e utilizzare un proxy SOCKS5.</li></ul></p>
+<p>Questa libreria è fondamentale per l'integrazione con la rete Tor, permettendo al server mail2news di comunicare in modo anonimo con il server SMTP .onion.</p>
 
-Licenza
+<b>Licenza</b>
 Questo progetto è distribuito senza alcuna licenza.
 
 Contatti
-Per ulteriori informazioni o supporto, contattaci all'email: support@virebent.art.
+Per ulteriori informazioni o supporto, contattaci all'email: info@virebent.art.
