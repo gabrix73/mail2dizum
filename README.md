@@ -51,8 +51,8 @@ Aggiungi il seguente contenuto:<br>
     SSLCertificateFile /etc/letsencrypt/live/mail2news.example.com/fullchain.pem
     SSLCertificateKeyFile /etc/letsencrypt/live/mail2news.example.com/privkey.pem
     ProxyPreserveHost On
-    ProxyPass / http://127.0.0.1:8443/
-    ProxyPassReverse / http://127.0.0.1:8443/
+    ProxyPass / http://127.0.0.1:8080/
+    ProxyPassReverse / http://127.0.0.1:8080/
     #ErrorLog ${APACHE_LOG_DIR}/mail2news_error.log
     CustomLog ${APACHE_LOG_DIR}/mail2news_access.log <b></b>anonymized_log</b>
 </VirtualHost></code></p>
