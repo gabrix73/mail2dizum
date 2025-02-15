@@ -1,4 +1,4 @@
-module mail2news
+module mail2dizum
 
 go 1.23.3
 
