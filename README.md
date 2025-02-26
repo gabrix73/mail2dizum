@@ -78,8 +78,8 @@ Aggiungi il seguente contenuto:<br>
         Header always set Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept"        
         Header always set X-Frame-Options DENY
         Header always set X-Content-Type-Options nosniff
-     </VirtualHost>
-</IfModule>
+     </ VirtualHost>
+</ IfModule>
 </code></pre>
 <li>6. Abilita la configurazione:<br></li>
 
