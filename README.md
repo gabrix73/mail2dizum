@@ -44,8 +44,7 @@ a2enmod ssl proxy proxy_http proxy_http2 proxy_balancer proxy_connect headers re
 
 <code>sudo nano /etc/apache2/sites-available/mail2dizum.conf</code>
 Aggiungi il seguente contenuto:<br>
-
-<p><code>
+<pre><code>
     <IfModule mod_ssl.c>
     <VirtualHost *:4443>
         ServerName mail2dizum.domain
@@ -81,7 +80,7 @@ Aggiungi il seguente contenuto:<br>
         Header always set X-Content-Type-Options nosniff
      </VirtualHost>
 </IfModule>
-</code></p>
+</code></pre>
 <li>6. Abilita la configurazione:<br></li>
 
 <code>sudo a2ensite mail2dizum.conf
