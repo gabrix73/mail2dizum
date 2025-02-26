@@ -1,0 +1,25 @@
+[Unit]
+Description=Mail2Dizum Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/$USER/mail2dizum
+ExecStart=/home/$USER/mail2dizum/mail2dizum
+Restart=on-failure
+User=$USER
+Group=$USER
+
+# Security hardening options
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateDevices=true
+ReadOnlyPaths=/
+InaccessiblePaths=/boot /etc
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=~@privileged
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target
