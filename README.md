@@ -36,8 +36,8 @@ cd mail2dizum</code>
 
 <li>4. Installa Apache2<br></li>
 <p>Se non è già installato, su debian puoi farlo con:</p>
-<code></code>sudo apt install apache2
-sudo a2enmod ssl proxy proxy_http proxy_balancer proxy_connect</code>
+<code>sudo apt install apache2<br>
+a2enmod ssl proxy proxy_http proxy_http2 proxy_balancer proxy_connect headers remoteip http2 ssl</code>
 
 <li>5. Configura un VirtualHost<br></li>
 <p>Crea un nuovo file di configurazione per Apache:</p>
@@ -45,17 +45,43 @@ sudo a2enmod ssl proxy proxy_http proxy_balancer proxy_connect</code>
 <code>sudo nano /etc/apache2/sites-available/mail2dizum.conf</code>
 Aggiungi il seguente contenuto:<br>
 
-<p><code><VirtualHost *:443>
-    ServerName mail2dizum.example.com
-    SSLEngine on
-    SSLCertificateFile /etc/letsencrypt/live/mail2dizum.example.com/fullchain.pem
-    SSLCertificateKeyFile /etc/letsencrypt/live/mail2dizum.example.com/privkey.pem
-    ProxyPreserveHost On
-    ProxyPass / http://127.0.0.1:8080/
-    ProxyPassReverse / http://127.0.0.1:8080/
-    #ErrorLog ${APACHE_LOG_DIR}/mail2news_error.log
-    CustomLog ${APACHE_LOG_DIR}/mail2news_access.log <b></b>anonymized_log</b>
-</VirtualHost></code></p>
+<p><code>
+    <IfModule mod_ssl.c>
+    <VirtualHost *:4443>
+        ServerName mail2dizum.domain
+        ServerAdmin webmaster@localhost
+        DocumentRoot /var/www/html
+        Protocols h2 http/1.1
+        # SSL Engine e percorsi certificati
+        SSLEngine on
+        SSLCertificateFile /etc/letsencrypt/live/mail2dizum.domain/fullchain.pem
+        SSLCertificateKeyFile /etc/letsencrypt/live/mail2dizum.domain/privkey.pem
+        SSLCACertificateFile /etc/letsencrypt/live/mail2dizum.domain/chain.pem
+
+        # Configurazione del proxy verso il server Go
+        ProxyPreserveHost On
+        ProxyPass / http://localhost:8080/
+        ProxyPassReverse / http://localhost:8080/
+
+        # Configurazione di sicurezza aggiuntiva
+        SSLProxyEngine On
+        SSLProxyCheckPeerCN off
+        SSLProxyCheckPeerName off
+
+        # No Access Logs
+        LogFormat "\"%{X-Forwarded-For}i\" %l %u %t \"%r\" %>s %b" anonymized_log
+        #LogLevel warn
+        #ErrorLog ${APACHE_LOG_DIR}/mail2news_ssl_error.log
+        CustomLog ${APACHE_LOG_DIR}/mail2news_ssl_access.log anonymized_log
+        # CORS headers
+        Header always set Access-Control-Allow-Origin "*"
+        Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Header always set Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept"        
+        Header always set X-Frame-Options DENY
+        Header always set X-Content-Type-Options nosniff
+     </VirtualHost>
+</IfModule>
+</code></p>
 <li>6. Abilita la configurazione:<br></li>
 
 <code>sudo a2ensite mail2dizum.conf
