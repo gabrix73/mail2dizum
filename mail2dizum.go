@@ -5,7 +5,7 @@
  * Secure web interface for Usenet posting via dizum.com mail2news service
  * Enhanced with MemGuard memory protection and privacy-focused logging
  * 
- * Author: Gabriel (gabrix73)
+ * Author: Gabx (gabrix73)
  * Repository: https://github.com/gabrix73/mail2dizum.git
  * License: Open Source
  */
