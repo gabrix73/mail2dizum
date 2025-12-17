@@ -1,11 +1,10 @@
 /*
- * Mail2Dizum with MemGuard v1.1
+ * Mail2Dizum with MemGuard v1.3
  * ===================================
  * 
  * Secure web interface for Usenet posting via dizum.com mail2news service
  * Enhanced with MemGuard memory protection and privacy-focused logging
  * 
- * Author: Gabx (gabrix73)
  * Repository: https://github.com/gabrix73/mail2dizum.git
  * License: Open Source
  */
@@ -13,6 +12,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -36,9 +36,8 @@ import (
 )
 
 const (
-	VERSION    = "1.1.0-memguard"
-	BUILD_DATE = "2025-01-23"
-	AUTHOR     = "Gabriel (gabrix73)"
+	VERSION    = "1.3.0-memguard"
+	BUILD_DATE = "2025-12-17"
 )
 
 var (
@@ -86,8 +85,6 @@ func init() {
 	
 	// Initialize MemGuard
 	memguard.CatchInterrupt()
-	// Note: DisableUnixCoreDumps is deprecated/removed in newer versions
-	// Core dumps are already disabled via syscall.RLIMIT_CORE in configureSystemLimits()
 	
 	validate = validator.New()
 	htmlSanitizer = bluemonday.StrictPolicy()
@@ -109,7 +106,6 @@ func ipLimiterCleanup() {
 	
 	for range ticker.C {
 		ipLimiterMu.Lock()
-		// Clear all IP limiters periodically
 		oldCount := len(ipLimiters)
 		ipLimiters = make(map[string]*rate.Limiter)
 		ipLimiterMu.Unlock()
@@ -125,10 +121,8 @@ func getIPLimiter(ip string) *rate.Limiter {
 	ipLimiterMu.Lock()
 	defer ipLimiterMu.Unlock()
 	
-	// Limite massimo di IP tracker per prevenire memory leak
 	const maxTrackedIPs = 1000
 	
-	// Se abbiamo troppi IP tracked, puliamo la mappa
 	if len(ipLimiters) > maxTrackedIPs {
 		logger.WithField("count", len(ipLimiters)).Debug("Clearing IP limiters due to size limit")
 		ipLimiters = make(map[string]*rate.Limiter)
@@ -136,7 +130,6 @@ func getIPLimiter(ip string) *rate.Limiter {
 	
 	limiter, exists := ipLimiters[ip]
 	if !exists {
-		// Allow 1 request every 5 seconds per IP
 		limiter = rate.NewLimiter(rate.Every(5*time.Second), 2)
 		ipLimiters[ip] = limiter
 	}
@@ -155,7 +148,6 @@ func NewSecureMessage(from, newsgroup, subject, message, references string) (*Se
 	
 	sm := &SecureMessage{}
 	
-	// Store all sensitive data in MemGuard enclaves
 	if from != "" {
 		sm.from = memguard.NewEnclave([]byte(from))
 	}
@@ -179,7 +171,6 @@ func NewSecureMessage(from, newsgroup, subject, message, references string) (*Se
 func (sm *SecureMessage) Destroy() {
 	logger.Debug("Destroying secure message and wiping memory")
 	
-	// MemGuard automatically wipes memory when enclaves are destroyed
 	sm.from = nil
 	sm.newsgroup = nil
 	sm.subject = nil
@@ -269,7 +260,6 @@ func securityCacheCleanup() {
 			}
 		}
 
-		// Reset failed attempts
 		securityCache.failedAttempts = make(map[string]int)
 		securityCache.mutex.Unlock()
 		
@@ -310,7 +300,6 @@ func recordFailedAttempt(ip string) {
 	securityCache.failedAttempts[ip]++
 	attempts := securityCache.failedAttempts[ip]
 	
-	// Ban after 10 failed attempts
 	if attempts >= 10 {
 		securityCache.bannedIPs[ip] = time.Now()
 		delete(securityCache.failedAttempts, ip)
@@ -354,7 +343,6 @@ func rateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		clientIP := getClientIP(r)
 		
-		// Check global rate limit first
 		if !globalLimiter.Allow() {
 			recordFailedAttempt(clientIP)
 			logger.WithField("hashed_ip", hashIP(clientIP)).Warn("Global rate limit exceeded")
@@ -362,7 +350,6 @@ func rateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		
-		// Then check per-IP rate limit
 		ipLimiter := getIPLimiter(clientIP)
 		if !ipLimiter.Allow() {
 			recordFailedAttempt(clientIP)
@@ -413,7 +400,6 @@ func anomalyDetectionMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
-		// Check for header injection attempts
 		for headerName, values := range r.Header {
 			for _, value := range values {
 				if strings.Contains(value, "\r") || strings.Contains(value, "\n") {
@@ -441,6 +427,177 @@ func maxSizeMiddleware(maxSize int64) func(http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// validateFromField validates the From field format:
+// - Username: 1-2 words, each max 12 characters, only alphanumeric
+// - Email: must be in format <address@domain.tld>
+func validateFromField(from string) error {
+	from = strings.TrimSpace(from)
+	
+	// Check minimum length
+	if len(from) < 5 {
+		return fmt.Errorf("From field too short")
+	}
+	
+	// Find the email part between < and >
+	openBracket := strings.LastIndex(from, "<")
+	closeBracket := strings.LastIndex(from, ">")
+	
+	if openBracket == -1 || closeBracket == -1 || closeBracket <= openBracket {
+		return fmt.Errorf("email must be in format: Name <email@domain>")
+	}
+	
+	// Check that > is at the end (with possible trailing whitespace)
+	afterBracket := strings.TrimSpace(from[closeBracket+1:])
+	if afterBracket != "" {
+		return fmt.Errorf("nothing should follow the email address")
+	}
+	
+	// Extract username part (before <)
+	usernamePart := strings.TrimSpace(from[:openBracket])
+	
+	// Extract email part (between < and >)
+	emailPart := strings.TrimSpace(from[openBracket+1 : closeBracket])
+	
+	// Validate username part
+	if usernamePart == "" {
+		return fmt.Errorf("username is required before email")
+	}
+	
+	// Split username into words
+	words := strings.Fields(usernamePart)
+	
+	if len(words) == 0 || len(words) > 2 {
+		return fmt.Errorf("username must contain 1 or 2 words")
+	}
+	
+	// Validate each word
+	for _, word := range words {
+		if len(word) > 12 {
+			return fmt.Errorf("each word in username must be max 12 characters")
+		}
+		
+		if len(word) == 0 {
+			return fmt.Errorf("empty word in username not allowed")
+		}
+		
+		// Allow only alphanumeric characters (no special chars)
+		for _, char := range word {
+			if !((char >= 'a' && char <= 'z') || 
+			     (char >= 'A' && char <= 'Z') || 
+			     (char >= '0' && char <= '9')) {
+				return fmt.Errorf("username can only contain letters and numbers")
+			}
+		}
+	}
+	
+	// Validate email format
+	if emailPart == "" {
+		return fmt.Errorf("email address is required")
+	}
+	
+	// Check for dangerous characters in email (injection prevention)
+	dangerousChars := []string{"\r", "\n", "\t", ";", "'", "\"", "\\", "|", "&", "$", "`"}
+	for _, dc := range dangerousChars {
+		if strings.Contains(emailPart, dc) {
+			return fmt.Errorf("email contains invalid characters")
+		}
+	}
+	
+	atIndex := strings.Index(emailPart, "@")
+	if atIndex == -1 || atIndex == 0 || atIndex == len(emailPart)-1 {
+		return fmt.Errorf("invalid email format")
+	}
+	
+	// Check for multiple @ symbols
+	if strings.Count(emailPart, "@") != 1 {
+		return fmt.Errorf("email must contain exactly one @ symbol")
+	}
+	
+	localPart := emailPart[:atIndex]
+	domainPart := emailPart[atIndex+1:]
+	
+	// Validate local part (before @)
+	if len(localPart) == 0 || len(localPart) > 64 {
+		return fmt.Errorf("email local part must be 1-64 characters")
+	}
+	
+	// Validate domain part (after @)
+	if len(domainPart) < 3 || !strings.Contains(domainPart, ".") {
+		return fmt.Errorf("invalid email domain")
+	}
+	
+	if len(domainPart) > 253 {
+		return fmt.Errorf("email domain too long")
+	}
+	
+	// Check domain has valid structure
+	dotIndex := strings.LastIndex(domainPart, ".")
+	if dotIndex == 0 || dotIndex == len(domainPart)-1 {
+		return fmt.Errorf("invalid email domain format")
+	}
+	
+	// TLD must be at least 2 characters
+	tld := domainPart[dotIndex+1:]
+	if len(tld) < 2 {
+		return fmt.Errorf("invalid TLD in email")
+	}
+	
+	// Validate allowed characters in email local part
+	allowedLocalChars := func(s string) bool {
+		for _, char := range s {
+			isAlphaNum := (char >= 'a' && char <= 'z') || 
+			              (char >= 'A' && char <= 'Z') || 
+			              (char >= '0' && char <= '9')
+			isAllowedSpecial := char == '-' || char == '_' || char == '+' || char == '.'
+			
+			if !isAlphaNum && !isAllowedSpecial {
+				return false
+			}
+		}
+		return true
+	}
+	
+	// Validate allowed characters in domain
+	allowedDomainChars := func(s string) bool {
+		for _, char := range s {
+			isAlphaNum := (char >= 'a' && char <= 'z') || 
+			              (char >= 'A' && char <= 'Z') || 
+			              (char >= '0' && char <= '9')
+			isAllowedSpecial := char == '-' || char == '.'
+			
+			if !isAlphaNum && !isAllowedSpecial {
+				return false
+			}
+		}
+		return true
+	}
+	
+	if !allowedLocalChars(localPart) {
+		return fmt.Errorf("email local part contains invalid characters")
+	}
+	
+	if !allowedDomainChars(domainPart) {
+		return fmt.Errorf("email domain contains invalid characters")
+	}
+	
+	// Check for consecutive dots
+	if strings.Contains(localPart, "..") || strings.Contains(domainPart, "..") {
+		return fmt.Errorf("email cannot contain consecutive dots")
+	}
+	
+	// Check local part doesn't start or end with dot
+	if strings.HasPrefix(localPart, ".") || strings.HasSuffix(localPart, ".") {
+		return fmt.Errorf("email local part cannot start or end with dot")
+	}
+	
+	// Check domain doesn't start or end with hyphen
+	if strings.HasPrefix(domainPart, "-") || strings.HasSuffix(domainPart, "-") {
+		return fmt.Errorf("email domain cannot start or end with hyphen")
+	}
+	
+	return nil
+}
+
 func sanitizeAndValidateInput(r *http.Request) (*SecureMessage, error) {
 	logger.Debug("Sanitizing and validating input")
 	
@@ -456,32 +613,105 @@ func sanitizeAndValidateInput(r *http.Request) (*SecureMessage, error) {
 		return nil, fmt.Errorf("all required fields must be filled")
 	}
 
-	// Check for email format: must contain < and > and @
-	hasAngleBrackets := strings.Contains(from, "<") && strings.Contains(from, ">")
-	hasAt := strings.Contains(from, "@")
-	
-	if !hasAngleBrackets || !hasAt {
-		logger.Debug("Validation failed: invalid email format")
-		return nil, fmt.Errorf("From field must be in format: Name <email@domain>")
+	// Validate From field with strict rules
+	if err := validateFromField(from); err != nil {
+		logger.WithField("error", err.Error()).Debug("From field validation failed")
+		return nil, fmt.Errorf("From field error: %s", err.Error())
+	}
+
+	// Validate newsgroup format
+	if !isValidNewsgroup(newsgroup) {
+		logger.Debug("Validation failed: invalid newsgroup format")
+		return nil, fmt.Errorf("invalid newsgroup format")
 	}
 
 	// Length limits
 	if len(subject) > 200 {
-		return nil, fmt.Errorf("Subject too long (max 200 characters)")
+		return nil, fmt.Errorf("subject too long (max 200 characters)")
 	}
 	if len(message) > 50000 {
-		return nil, fmt.Errorf("Message too long (max 50000 characters)")
+		return nil, fmt.Errorf("message too long (max 50000 characters)")
+	}
+
+	// Validate references if provided (Message-ID format)
+	if references != "" {
+		if !isValidMessageID(references) {
+			logger.Debug("Validation failed: invalid Message-ID format")
+			return nil, fmt.Errorf("invalid Message-ID format in references")
+		}
 	}
 
 	logger.Debug("Input validation successful")
 	return NewSecureMessage(from, newsgroup, subject, message, references)
 }
 
+// isValidNewsgroup validates newsgroup name format
+func isValidNewsgroup(ng string) bool {
+	if len(ng) < 3 || len(ng) > 200 {
+		return false
+	}
+	
+	// Must contain at least one dot
+	if !strings.Contains(ng, ".") {
+		return false
+	}
+	
+	// Check for valid characters (alphanumeric, dots, hyphens, plus)
+	for _, char := range ng {
+		isAlphaNum := (char >= 'a' && char <= 'z') || 
+		              (char >= 'A' && char <= 'Z') || 
+		              (char >= '0' && char <= '9')
+		isAllowed := char == '.' || char == '-' || char == '+' || char == '_'
+		
+		if !isAlphaNum && !isAllowed {
+			return false
+		}
+	}
+	
+	// Cannot start or end with dot
+	if strings.HasPrefix(ng, ".") || strings.HasSuffix(ng, ".") {
+		return false
+	}
+	
+	// No consecutive dots
+	if strings.Contains(ng, "..") {
+		return false
+	}
+	
+	return true
+}
+
+// isValidMessageID validates Message-ID format
+func isValidMessageID(msgID string) bool {
+	msgID = strings.TrimSpace(msgID)
+	
+	if len(msgID) < 5 || len(msgID) > 250 {
+		return false
+	}
+	
+	// Must be enclosed in < >
+	if !strings.HasPrefix(msgID, "<") || !strings.HasSuffix(msgID, ">") {
+		return false
+	}
+	
+	// Must contain @
+	if !strings.Contains(msgID, "@") {
+		return false
+	}
+	
+	// Check for injection characters
+	dangerousChars := []string{"\r", "\n", "\t", ";", "'", "\"", "\\", "|", "&", "$", "`"}
+	for _, dc := range dangerousChars {
+		if strings.Contains(msgID, dc) {
+			return false
+		}
+	}
+	
+	return true
+}
+
 func configureSystemLimits() {
 	var rLimit syscall.Rlimit
-	
-	// RIMOSSO il limite di memoria virtuale che causa il crash
-	// Il limite RLIMIT_AS era troppo restrittivo per Go runtime
 	
 	// File descriptors limit
 	rLimit.Max = 1024
@@ -595,6 +825,16 @@ const htmlTemplate = `<!DOCTYPE html>
 			border-radius: 3px;
 			font-size: 11px;
 		}
+		.field-hint {
+			color: #888;
+			font-size: 11px;
+			margin-top: 3px;
+			margin-bottom: 10px;
+		}
+		label {
+			margin-top: 10px;
+			display: block;
+		}
 	</style>
 </head>
 <body>
@@ -621,7 +861,8 @@ const htmlTemplate = `<!DOCTYPE html>
 		
 		<form method="POST" action="/send">
 			<label for="from">From:</label>
-			<input type="text" id="from" name="from" placeholder="Your Name <email@example.com>" required autocomplete="off">
+			<input type="text" id="from" name="from" placeholder="Name Surname <email@example.com>" required autocomplete="off">
+			<div class="field-hint">Format: 1-2 words (max 12 chars each) + email in &lt;brackets&gt;</div>
 
 			<label for="newsgroup">Newsgroup:</label>
 			<input type="text" id="newsgroup" name="newsgroup" placeholder="alt.test" required autocomplete="off">
@@ -633,7 +874,8 @@ const htmlTemplate = `<!DOCTYPE html>
 			<textarea id="message" name="message" rows="10" maxlength="50000" required></textarea>
 
 			<label for="reply_to">References (Message-ID for replies):</label>
-			<input type="text" id="reply_to" name="reply_to" placeholder="Optional" autocomplete="off">
+			<input type="text" id="reply_to" name="reply_to" placeholder="<msgid@domain.tld> (optional)" autocomplete="off">
+			<div class="field-hint">Leave empty for new posts, use Message-ID for replies</div>
 
 			<label>
 				<input type="checkbox" id="antispam" name="antispam">
@@ -643,7 +885,7 @@ const htmlTemplate = `<!DOCTYPE html>
 			<label for="smtp_choice">SMTP Server:</label>
 			<select id="smtp_choice" name="smtp_choice">
 				<option value="xilb7y4kj6u6qfo45o3yk2kilfv54ffukzei3puonuqlncy7cn2afwyd.onion:25" selected>
-					Dizum Onion (Default)
+					Victor Onion SMTP (Onion smtp classic)
 				</option>
 				<option value="custom">Custom SMTP Server</option>
 			</select>
@@ -651,7 +893,7 @@ const htmlTemplate = `<!DOCTYPE html>
 			<div id="custom_smtp_div" style="display:none; margin-top:10px;">
 				<label for="smtp_custom">Custom SMTP Server:</label>
 				<input type="text" id="smtp_custom" name="smtp_custom" placeholder="smtp.example.com:25" autocomplete="off">
-				<small style="color:#888;">See <a href="https://www.sec3.net/misc/mail-relays.html" target="_blank" rel="noopener noreferrer" style="color:#4ade80;">SEC3 mail relays</a> for alternatives</small>
+				<div class="field-hint">See <a href="https://www.sec3.net/misc/mail-relays.html" target="_blank" rel="noopener noreferrer" style="color:#4ade80;">SEC3 mail relays</a> for alternatives</div>
 			</div>
 
 			<button type="submit">Send via Tor</button>
@@ -675,7 +917,7 @@ const htmlTemplate = `<!DOCTYPE html>
 			</a>
 		</div>
 		<div style="font-size: 10px; margin-top: 5px; color: #666;">
-			Mail2Dizum v{{.Version}} - MemGuard Edition by {{.Author}}
+			Mail2Dizum v{{.Version}} - MemGuard Edition
 		</div>	
 	</footer>
 	
@@ -750,12 +992,21 @@ func sendMailThroughTor(smtpServer string, secureMsg *SecureMessage, antispam bo
 
 	logger.Debug("Successfully decrypted all message fields from MemGuard")
 
-	// Build email message
+	// Generate randomized Message-ID to prevent correlation
+	messageID, err := generateMessageID()
+	if err != nil {
+		logger.WithError(err).Error("Failed to generate Message-ID")
+		return fmt.Errorf("Message-ID generation error: %w", err)
+	}
+	logger.Debug("Generated uncorrelatable Message-ID")
+
+	// Build email message with our own Message-ID
 	msgLines := []string{
 		fmt.Sprintf("From: %s", fromHeader),
 		fmt.Sprintf("To: %s", recipient),
 		fmt.Sprintf("Newsgroups: %s", newsgroup),
 		fmt.Sprintf("Subject: %s", subject),
+		fmt.Sprintf("Message-ID: %s", messageID),
 		"X-No-Archive: Yes",
 		"Content-Type: text/plain; charset=utf-8",
 		"MIME-Version: 1.0",
@@ -849,8 +1100,8 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 	mu.Unlock()
 	
 	logger.WithFields(logrus.Fields{
-		"method": r.Method,
-		"path":   r.URL.Path,
+		"method":     r.Method,
+		"path":       r.URL.Path,
 		"user_agent": r.UserAgent(),
 	}).Debug("Main page requested")
 
@@ -864,11 +1115,9 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 	data := struct {
 		Version   string
 		BuildDate string
-		Author    string
 	}{
 		Version:   VERSION,
 		BuildDate: BUILD_DATE,
-		Author:    AUTHOR,
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
@@ -912,6 +1161,13 @@ func sendHandler(w http.ResponseWriter, r *http.Request) {
 			secureMsg.Destroy()
 			logger.Debug("Custom SMTP server not specified")
 			http.Error(w, "Custom SMTP server required", http.StatusBadRequest)
+			return
+		}
+		// Validate custom SMTP server format
+		if !isValidSMTPServer(smtpServer) {
+			secureMsg.Destroy()
+			logger.Debug("Invalid custom SMTP server format")
+			http.Error(w, "Invalid SMTP server format", http.StatusBadRequest)
 			return
 		}
 	} else {
@@ -1032,21 +1288,187 @@ func sendHandler(w http.ResponseWriter, r *http.Request) {
 		</center>
 		<div class="footer">
 			Mail2Dizum v%s with MemGuard<br>
-			Powered by dizum.com | Enhanced by %s
+			Powered by <a href="https://dizum.com" target="_blank" rel="noopener noreferrer" style="color:#007bff;">dizum.com</a>
 		</div>
 	</div>
 </body>
-</html>`, VERSION, AUTHOR)
+</html>`, VERSION)
 	
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprint(w, successHTML)
+}
+
+// isValidSMTPServer validates SMTP server format (host:port or onion:port)
+func isValidSMTPServer(server string) bool {
+	server = strings.TrimSpace(server)
+	
+	if len(server) < 5 || len(server) > 253 {
+		return false
+	}
+	
+	// Check for injection characters
+	dangerousChars := []string{"\r", "\n", "\t", ";", "'", "\"", "\\", "|", "&", "$", "`", " "}
+	for _, dc := range dangerousChars {
+		if strings.Contains(server, dc) {
+			return false
+		}
+	}
+	
+	// Must contain exactly one colon for port
+	colonCount := strings.Count(server, ":")
+	if colonCount != 1 {
+		return false
+	}
+	
+	parts := strings.Split(server, ":")
+	if len(parts) != 2 {
+		return false
+	}
+	
+	host := parts[0]
+	port := parts[1]
+	
+	// Validate host
+	if len(host) < 3 {
+		return false
+	}
+	
+	// Validate port (must be numeric, 1-65535)
+	if len(port) == 0 || len(port) > 5 {
+		return false
+	}
+	
+	for _, char := range port {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	
+	return true
+}
+
+// generateMessageID creates a randomized Message-ID to prevent correlation
+// Format: <random-local@random-domain.tld> with variable lengths
+func generateMessageID() (string, error) {
+	// TLD list for realistic appearance
+	tlds := []string{"net", "org", "com", "info", "de", "fr", "nl", "ch", "at", "uk", "eu", "io", "cc", "me", "co"}
+	
+	// Generate random bytes for local part (8-16 bytes -> 16-32 hex chars)
+	localLenVariation, err := secureRandomInt(9) // 0-8
+	if err != nil {
+		return "", err
+	}
+	localLen := 8 + localLenVariation // 8-16 bytes
+	
+	localBytes := make([]byte, localLen)
+	if _, err := rand.Read(localBytes); err != nil {
+		return "", fmt.Errorf("failed to generate random local part: %w", err)
+	}
+	localPart := hex.EncodeToString(localBytes)
+	
+	// Optionally add dots in local part for more natural appearance
+	localPart = insertRandomDots(localPart)
+	
+	// Generate random domain part (4-8 bytes -> 8-16 hex chars)
+	domainLenVariation, err := secureRandomInt(5) // 0-4
+	if err != nil {
+		return "", err
+	}
+	domainLen := 4 + domainLenVariation // 4-8 bytes
+	
+	domainBytes := make([]byte, domainLen)
+	if _, err := rand.Read(domainBytes); err != nil {
+		return "", fmt.Errorf("failed to generate random domain: %w", err)
+	}
+	domainPart := hex.EncodeToString(domainBytes)
+	
+	// Select random TLD
+	tldIndex, err := secureRandomInt(len(tlds))
+	if err != nil {
+		return "", err
+	}
+	tld := tlds[tldIndex]
+	
+	// Optionally add subdomain for more variation
+	addSubdomain, err := secureRandomInt(3) // 33% chance
+	if err != nil {
+		return "", err
+	}
+	
+	var domain string
+	if addSubdomain == 0 {
+		subBytes := make([]byte, 3)
+		if _, err := rand.Read(subBytes); err != nil {
+			return "", err
+		}
+		domain = fmt.Sprintf("%s.%s.%s", hex.EncodeToString(subBytes), domainPart, tld)
+	} else {
+		domain = fmt.Sprintf("%s.%s", domainPart, tld)
+	}
+	
+	messageID := fmt.Sprintf("<%s@%s>", localPart, domain)
+	
+	logger.WithField("msgid_length", len(messageID)).Debug("Generated randomized Message-ID")
+	
+	return messageID, nil
+}
+
+// secureRandomInt returns a cryptographically secure random int in [0, max)
+func secureRandomInt(max int) (int, error) {
+	if max <= 0 {
+		return 0, nil
+	}
+	
+	b := make([]byte, 1)
+	if _, err := rand.Read(b); err != nil {
+		return 0, err
+	}
+	
+	return int(b[0]) % max, nil
+}
+
+// insertRandomDots adds 0-2 dots at random positions in a hex string
+func insertRandomDots(s string) string {
+	if len(s) < 8 {
+		return s
+	}
+	
+	numDots, err := secureRandomInt(3) // 0, 1, or 2 dots
+	if err != nil || numDots == 0 {
+		return s
+	}
+	
+	runes := []rune(s)
+	for i := 0; i < numDots; i++ {
+		pos, err := secureRandomInt(len(runes) - 2)
+		if err != nil {
+			continue
+		}
+		pos += 1 // Avoid first position
+		
+		// Don't put dot next to another dot
+		if pos > 0 && runes[pos-1] == '.' {
+			continue
+		}
+		if pos < len(runes)-1 && runes[pos+1] == '.' {
+			continue
+		}
+		
+		// Insert dot
+		newRunes := make([]rune, len(runes)+1)
+		copy(newRunes[:pos], runes[:pos])
+		newRunes[pos] = '.'
+		copy(newRunes[pos+1:], runes[pos:])
+		runes = newRunes
+	}
+	
+	return string(runes)
 }
 
 func main() {
 	logger.WithFields(logrus.Fields{
 		"version":  VERSION,
 		"build":    BUILD_DATE,
-		"author":   AUTHOR,
 		"memguard": "enabled",
 	}).Info("Starting Mail2Dizum with MemGuard Protection")
 
@@ -1083,7 +1505,7 @@ func main() {
 
 	// Configure server with security settings
 	server := &http.Server{
-		Addr:              ":8080",
+		Addr:              "127.0.0.1:8789",
 		Handler:           http.DefaultServeMux,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -1102,7 +1524,7 @@ func main() {
 	limitedListener := netutil.LimitListener(listener, 100)
 
 	logger.WithFields(logrus.Fields{
-		"port":              ":8080",
+		"address":           server.Addr,
 		"max_connections":   100,
 		"rate_limit_global": "10 req/sec",
 		"rate_limit_per_ip": "1 req/5sec",
