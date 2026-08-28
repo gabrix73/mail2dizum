@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	VERSION                  = "1.5.4-memguard"
+	VERSION                  = "1.5.5-memguard"
 	BUILD_DATE               = "2026-08-28"
 	LOG_FILE                 = "/home/ocourier/mail2dizum/mail2dizum.log"
 	RESTRICTED_SMTP_RELAY    = "qee4i7sags6phsvb2yodwecfj7noimfhhalsjktsvikrwotxzis3raad.onion:25"
@@ -697,7 +697,7 @@ func sendMailThroughTor(smtpServer string, secureMsg *SecureMessage, antispam bo
 		"newsgroup":   newsgroup,
 		"message_id":  messageID,
 		"final_code":  finalCode,
-	}).Info("=== SMTP session completed successfully ===")
+	}).Info("=== Message accepted by SMTP relay ===")
 
 	return nil
 }
@@ -888,13 +888,14 @@ func sendHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Info("Message sent successfully")
+	logger.Info("Message accepted by SMTP relay")
 
 	successHTML := fmt.Sprintf(`<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Message Sent</title>
 <style>body{font-family:Arial;background:#f0f0f0;padding:20px}.container{max-width:600px;margin:0 auto;background:white;padding:30px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}.success{color:#28a745;font-size:24px;text-align:center}.checkmark{color:#28a745;font-size:48px;text-align:center}.back{display:inline-block;background:#007bff;color:white;padding:10px 20px;text-decoration:none;border-radius:4px;margin-top:20px}.memguard{color:#4ade80;font-weight:bold}</style></head>
 <body><div class="container"><div class="checkmark">✓</div><div class="success">Message Sent Successfully!</div>
-<p>Your message has been delivered to dizum.com mail2news service.</p>
+<p>Your message was accepted by the Victor SMTP relay for delivery to dizum.com.</p>
+<p>This confirms relay acceptance, not final Usenet publication.</p>
 <ul><li><span class="memguard">✓ MemGuard protected</span></li><li>✓ Transmitted via Tor</li><li>✓ Message-ID under dizum.com</li></ul>
 <p>Message should appear in newsgroup shortly.</p>
 <center><a href="/" class="back">Send Another Message</a></center>
