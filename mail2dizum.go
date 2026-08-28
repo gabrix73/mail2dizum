@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	VERSION                  = "1.5.3-memguard"
-	BUILD_DATE               = "2026-08-19"
+	VERSION                  = "1.5.4-memguard"
+	BUILD_DATE               = "2026-08-28"
 	LOG_FILE                 = "/home/ocourier/mail2dizum/mail2dizum.log"
 	RESTRICTED_SMTP_RELAY    = "qee4i7sags6phsvb2yodwecfj7noimfhhalsjktsvikrwotxzis3raad.onion:25"
 	MAIL2NEWS_INGRESS_DOMAIN = "xilb7y4kj6u6qfo45o3yk2kilfv54ffukzei3puonuqlncy7cn2afwyd.onion"
@@ -780,7 +780,7 @@ const htmlTemplate = `<!DOCTYPE html>
 
 			<label for="smtp_choice">SMTP Server:</label>
 			<select id="smtp_choice" name="smtp_choice">
-				<option value="qee4i7sags6phsvb2yodwecfj7noimfhhalsjktsvikrwotxzis3raad.onion:25" selected>Victor restricted Mail2News relay</option>
+				<option value="4uwpi53u524xdphjw2dv5kywsxmyjxtk4facb76jgl3sc3nda3sz4fqd.onion:25" selected>Dizum Onion SMTP</option>
 				<option value="custom">Custom SMTP Server</option>
 			</select>
 			<div id="custom_smtp_div" style="display:none; margin-top:10px;">
