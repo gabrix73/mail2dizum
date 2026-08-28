@@ -780,7 +780,7 @@ const htmlTemplate = `<!DOCTYPE html>
 
 			<label for="smtp_choice">SMTP Server:</label>
 			<select id="smtp_choice" name="smtp_choice">
-				<option value="4uwpi53u524xdphjw2dv5kywsxmyjxtk4facb76jgl3sc3nda3sz4fqd.onion:25" selected>Dizum Onion SMTP</option>
+				<option value="4uwpi53u524xdphjw2dv5kywsxmyjxtk4facb76jgl3sc3nda3sz4fqd.onion:25" selected>Victor Onion SMTP relay to Dizum</option>
 				<option value="custom">Custom SMTP Server</option>
 			</select>
 			<div id="custom_smtp_div" style="display:none; margin-top:10px;">
